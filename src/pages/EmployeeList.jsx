@@ -8,19 +8,20 @@ function EmployeeList() {
   const [editingId, setEditingId] = useState(null);
   const [editedEmployee, setEditedEmployee] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [uploadingId, setUploadingId] = useState(null);
 
   const getEmployees = async () => {
     try {
-      const employee = await fetch('http://localhost:5000/api/employees', {
+      const response = await fetch('http://localhost:5000/api/employees', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'role': localStorage.getItem('role')
+          Authorization: `Bearer ${token}`,
+          role: localStorage.getItem('role'),
         },
       });
 
-      const data = await employee.json();
+      const data = await response.json();
       setEmployees(data);
       setFilteredEmployees(data); // Initialize filteredEmployees with all employees
     } catch (err) {
@@ -29,7 +30,7 @@ function EmployeeList() {
   };
 
   const enableEditing = (employee) => {
-    setEditingId(employee.id);
+    setEditingId(employee._id);
     setEditedEmployee(employee);
   };
 
@@ -41,15 +42,58 @@ function EmployeeList() {
     });
   };
 
+  const handleProfilePictureUpload = async (id, file) => {
+    const formData = new FormData();
+    formData.append('profilePicture', file);
+    formData.append('userId', id);
+
+    try {
+      setUploadingId(id); // Indicate which profile is being uploaded
+      const response = await fetch('http://localhost:5000/api/user/upload-profile-picture', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          role: localStorage.getItem('role'),
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(data.Employee);
+        
+        setEmployees((prevEmployees) =>
+          prevEmployees.map((emp) =>
+            emp._id === id ? { ...emp, profilePicture: data.profilePicture } : emp
+          )
+        );
+        setFilteredEmployees((prevEmployees) =>
+          prevEmployees.map((emp) =>
+            emp._id === id ? { ...emp, profilePicture: data.Employee.profilePicture } : emp
+          )
+        );
+        alert('Profile picture updated successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred while uploading the profile picture.');
+    } finally {
+      setUploadingId(null); // Clear uploading status
+    }
+  };
+
   const handleSaveClick = async (id) => {
     try {
       const response = await fetch(`http://localhost:5000/api/employees/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'role': localStorage.getItem('role'),
-          'mydepartment': localStorage.getItem('department'),
+          Authorization: `Bearer ${token}`,
+          role: localStorage.getItem('role'),
+          mydepartment: localStorage.getItem('department'),
         },
         body: JSON.stringify(editedEmployee),
       });
@@ -59,12 +103,12 @@ function EmployeeList() {
       if (response.ok) {
         setEmployees((prevEmployees) =>
           prevEmployees.map((emp) =>
-            emp.id === id ? data : emp
+            emp._id === id ? data : emp
           )
         );
         setFilteredEmployees((prevEmployees) =>
           prevEmployees.map((emp) =>
-            emp.id === id ? data : emp
+            emp._id === id ? data : emp
           )
         );
       } else {
@@ -86,11 +130,11 @@ function EmployeeList() {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'role': localStorage.getItem('role'),
-          'mydepartment': localStorage.getItem('department'),
-          'department': department
-        }
+          Authorization: `Bearer ${token}`,
+          role: localStorage.getItem('role'),
+          mydepartment: localStorage.getItem('department'),
+          department: department,
+        },
       });
 
       if (response.ok) {
@@ -116,7 +160,9 @@ function EmployeeList() {
 
   const handleSearch = () => {
     const filtered = employees.filter((employee) =>
-      employee.name.toLowerCase().includes(searchQuery.toLowerCase()) || employee.status.toLowerCase().includes(searchQuery.toLowerCase()) || employee.department.toLowerCase().includes(searchQuery.toLowerCase())
+      employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (employee.status && employee.status.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (employee.department && employee.department.toLowerCase().includes(searchQuery.toLowerCase()))
     );
     setFilteredEmployees(filtered);
   };
@@ -137,7 +183,7 @@ function EmployeeList() {
           <input
             type="text"
             name="name"
-            placeholder="Search by name,department or status"
+            placeholder="Search by name, department, or status"
             value={searchQuery}
             onChange={handleSearchChange}
             className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -148,6 +194,7 @@ function EmployeeList() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profile Picture</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
@@ -157,9 +204,24 @@ function EmployeeList() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredEmployees.map((employee) => (
-              <tr key={employee.id}>
+              <tr key={employee._id}>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === employee.id ? (
+                  <img
+                    src={employee.profilePicture || '/default-avatar.png'}
+                    alt="Profile"
+                    className="h-10 w-10 rounded-full"
+                  />
+                  {editingId === employee._id && (
+                    <input
+                      type="file"
+                      name="profilePicture"
+                      onChange={(e) => handleProfilePictureUpload(employee._id, e.target.files[0])}
+                      className="border border-gray-300 p-2 rounded mt-2"
+                    />
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {editingId === employee._id ? (
                     <input
                       type="text"
                       name="name"
@@ -172,7 +234,7 @@ function EmployeeList() {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === employee.id ? (
+                  {editingId === employee._id ? (
                     <input
                       type="text"
                       name="position"
@@ -185,7 +247,7 @@ function EmployeeList() {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === employee.id ? (
+                  {editingId === employee._id ? (
                     <input
                       type="text"
                       name="department"
@@ -198,7 +260,7 @@ function EmployeeList() {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {editingId === employee.id ? (
+                  {editingId === employee._id ? (
                     <input
                       type="text"
                       name="status"
@@ -213,21 +275,33 @@ function EmployeeList() {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {editingId === employee.id ? (
+                  {editingId === employee._id ? (
                     <>
-                      <button onClick={() => handleSaveClick(employee.id)} className="text-green-600 hover:text-green-900 mr-4">
+                      <button
+                        onClick={() => handleSaveClick(employee._id)}
+                        className="text-green-600 hover:text-green-900 mr-4"
+                      >
                         <FiCheck className="h-5 w-5" />
                       </button>
-                      <button onClick={handleCancelClick} className="text-red-600 hover:text-red-900">
+                      <button
+                        onClick={handleCancelClick}
+                        className="text-red-600 hover:text-red-900"
+                      >
                         <FiX className="h-5 w-5" />
                       </button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => enableEditing(employee)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                      <button
+                        onClick={() => enableEditing(employee)}
+                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                      >
                         <FiEdit2 className="h-5 w-5" />
                       </button>
-                      <button onClick={() => handleDeleteClick(employee._id, employee.department)} className="text-red-600 hover:text-red-900">
+                      <button
+                        onClick={() => handleDeleteClick(employee._id, employee.department)}
+                        className="text-red-600 hover:text-red-900"
+                      >
                         <FiTrash2 className="h-5 w-5" />
                       </button>
                     </>

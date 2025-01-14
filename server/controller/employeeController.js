@@ -68,7 +68,7 @@ const updateEmployee = async (req, res) => {
     }}}
 
     const { _id } = req.body;
-    console.log(_id);
+    // console.log(_id);
     
     const updates = req.body;
     // console.log(updates);
@@ -89,7 +89,7 @@ const updateEmployee = async (req, res) => {
     await employee.save();
 
     // Send notification
-    sendNotification(`Employee updated: ${employee.name}`);
+    // sendNotification(`Employee updated: ${employee.name}`);
 
     // Respond with the updated employee data
     res.status(200).json(employee);
@@ -103,25 +103,23 @@ const updateEmployee = async (req, res) => {
 // Delete Employee
 const deleteEmployee = async (req, res) => {
   try {
-    console.log(req.headers.mydepartment);
-    console.log(req.headers.department);
-    
     {if(req.headers.role=='Manager'){if(req.headers.mydepartment !== req.headers.department) {
       return res.status(403).json({ message: 'This employee is not in your department' });
     }}}
     // console.log(req.body._id);
     
     const { id } = req.params;
-    console.log(id);
+    // console.log(id);
     
     const employee = await Employee.findByIdAndDelete(id);
-    console.log(employee);
+    // console.log(employee);
     
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found.' });
     }
     res.status(200).json({ message: 'Employee deleted successfully.' });
     // Send notification
+    createCalendarEvent(employee);
     sendNotification(`Employee deleted: ${employee.name}`);
   } catch (error) {
     res.status(500).json({ message: 'Internal server error.' });

@@ -6,7 +6,7 @@ const {
   deleteEmployee,
   getEmployeeById,
 } = require('../controller/employeeController');
-const { authenticate, authorizeRoles,partialAuthorize } = require('../middleware/authMiddleware');
+const { authenticate, authorizeRoles } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // router.use(authenticate);

@@ -7,10 +7,16 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_SECRET,
   process.env.GOOGLE_REDIRECT_URI
 );
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+// oauth2Client.setCredentials({
+//   access_token: process.env.GOOGLE_ACCESS_TOKEN,
+//   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+// });
+const scopes= 'https://www.googleapis.com/oauth2/v1/certs';
+const authUrl = oauth2Client.generateAuthUrl({
+  access_type: "offline",
+  scope: scopes,
 });
-
+const code= 'https://accounts.google.com/o/oauth2/auth'
 const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 const createCalendarEvent = async (employee) => {
   const event = {
